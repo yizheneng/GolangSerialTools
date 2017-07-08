@@ -1,0 +1,16 @@
+QToolBar{
+	background-color: #5F9EA09f;
+}
+
+QToolButton#openPortToolButton:!checked{
+	border-image: url(play_128px.ico);
+}
+
+QToolButton#openPortToolButton:checked{
+	border-image: url(stop_128px.ico);
+}
+
+.QToolButton:hover {
+	border-style:solid;
+	border-width: 2px;
+}

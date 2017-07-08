@@ -2,34 +2,39 @@
 package main
 
 import (
-	"fmt"
+	_ "fmt"
 	_ "reflect"
 
+	"github.com/therecipe/qt/core"
 	"github.com/therecipe/qt/serialport"
 	"github.com/therecipe/qt/widgets"
 )
 
 type MainWindow struct {
 	*widgets.QWidget
+	portOpenFlag bool
 }
 
 func NewMainwindow() (mainWindow *MainWindow) {
-	mainWindow = &MainWindow{}
+	mainWindow = &MainWindow{portOpenFlag: false}
 	mainWindow.QWidget = widgets.NewQWidget(nil, 0)
-	mainWindow.SetMinimumSize2(500, 600)
+	mainWindow.SetMinimumSize2(300, 200)
 	mainWindow.SetWindowTitle("串口调试工具")
 
 	mainLayout := widgets.NewQVBoxLayout()
 	widgetsLayout := widgets.NewQHBoxLayout()
 	settingLayout := widgets.NewQVBoxLayout()
-	dataDisplay := widgets.NewQVBoxLayout()
-	menuBar := widgets.NewQMenuBar(nil)
+	dataDisplayLayout := widgets.NewQVBoxLayout()
+	toolBar := widgets.NewQToolBar("工具栏", nil)
+	historySendListWidget := widgets.NewQListWidget(nil) ///< 发送历史LIST
 
-	mainLayout.AddWidget(menuBar, 0, 0)
+	mainLayout.AddWidget(toolBar, 0, 0)
 	mainLayout.AddLayout(widgetsLayout, 0)
 	widgetsLayout.AddLayout(settingLayout, 0)
-	widgetsLayout.AddLayout(dataDisplay, 0)
+	widgetsLayout.AddLayout(dataDisplayLayout, 0)
+	widgetsLayout.AddWidget(historySendListWidget, 0, 0)
 
+	/// 主要布局
 	portSettingGroup := widgets.NewQGroupBox2("串口配置", nil)
 	portSettingLayout := widgets.NewQGridLayout2()
 	portSettingGroup.SetLayout(portSettingLayout)
@@ -39,7 +44,7 @@ func NewMainwindow() (mainWindow *MainWindow) {
 	sendSettingGroup := widgets.NewQGroupBox2("发送设置", nil)
 	sendSettingLayout := widgets.NewQGridLayout2()
 	sendSettingGroup.SetLayout(sendSettingLayout)
-
+	/// 串口设置
 	portNameLabel := widgets.NewQLabel2("串口号:", nil, 0)
 	buadLabel := widgets.NewQLabel2("波特率:", nil, 0)
 	dataBitLabel := widgets.NewQLabel2("数据位:", nil, 0)
@@ -60,7 +65,7 @@ func NewMainwindow() (mainWindow *MainWindow) {
 	portSettingLayout.AddWidget(dataBitCombox, 2, 1, 0)
 	portSettingLayout.AddWidget(checkBitCombox, 3, 1, 0)
 	portSettingLayout.AddWidget(stopBitCombox, 4, 1, 0)
-
+	/// 接收设置
 	asciiReceiveButton := widgets.NewQRadioButton2("ASCII", nil)
 	hexReceiveButton := widgets.NewQRadioButton2("Hex", nil)
 	autoNewLineReciveCheckBox := widgets.NewQCheckBox2("自动换行", nil)
@@ -69,7 +74,7 @@ func NewMainwindow() (mainWindow *MainWindow) {
 	receiveSeetingLayout.AddWidget(hexReceiveButton, 0, 1, 0)
 	receiveSeetingLayout.AddWidget(autoNewLineReciveCheckBox, 1, 0, 0)
 	receiveSeetingLayout.AddWidget(displayTimeCheckBox, 2, 0, 0)
-
+	/// 发送设置
 	asciiSendButton := widgets.NewQRadioButton2("ASCII", nil)
 	hexSendButton := widgets.NewQRadioButton2("Hex", nil)
 	reSendCheckButton := widgets.NewQCheckBox2("重复发送:", nil)
@@ -81,16 +86,98 @@ func NewMainwindow() (mainWindow *MainWindow) {
 	sendSettingLayout.AddWidget(reSendSpinBox, 2, 0, 0)
 	sendSettingLayout.AddWidget(reSendLabel, 2, 1, 0)
 
+	/// 发送数据显示
+	sendDataDisplayLayout := widgets.NewQHBoxLayout()
+	sendDataDisplay := widgets.NewQPlainTextEdit(nil)
+	sendButtonLayout := widgets.NewQVBoxLayout()
+	sendButton := widgets.NewQPushButton2("打开串口", nil)
+	advancedButton := widgets.NewQPushButton2("高级发送>>", nil)
+	sendButtonLayout.AddWidget(sendButton, 0, 0)
+	sendButtonLayout.AddWidget(advancedButton, 0, 0)
+	sendDataDisplayLayout.AddWidget(sendDataDisplay, 0, 0)
+	sendDataDisplayLayout.AddLayout(sendButtonLayout, 0)
+
+	/// 数据显示
+	receiveDataDisplay := widgets.NewQPlainTextEdit(nil)
+	dataDisplayLayout.AddWidget(receiveDataDisplay, 0, 0)
+	dataDisplayLayout.AddLayout(sendDataDisplayLayout, 0)
+
 	settingLayout.AddWidget(portSettingGroup, 0, 0)
 	settingLayout.AddWidget(receiveSettingGroup, 0, 0)
 	settingLayout.AddWidget(sendSettingGroup, 0, 0)
 	settingLayout.AddStretch(20)
 
+	widgetsLayout.SetStretch(0, 0)
+	widgetsLayout.SetStretch(1, 4)
+	widgetsLayout.SetStretch(2, 1)
+	dataDisplayLayout.SetStretch(0, 5)
+	dataDisplayLayout.SetStretch(1, 1)
 	mainWindow.SetLayout(mainLayout)
+
+	/// 高级发送显示
+	advancedWidget := widgets.NewQWidget(nil, 0)
+	advancedWidget.SetMinimumHeight(100)
+	advancedWidget.Hide()
+	dataDisplayLayout.AddWidget(advancedWidget, 0, 0)
+
+	/// 工具栏
+	toolBar.SetObjectName("toolbar")
+	toolBar.SetMinimumHeight(30)
+	openPortToolButton := widgets.NewQToolButton(nil)
+	openPortToolButton.SetObjectName("openPortToolButton")
+	openPortToolButton.SetToolTip("打开串口")
+	openPortToolButton.SetCheckable(true)
+	toolBar.AddWidget(openPortToolButton)
+
+	/// 控件数据初始化
 	serialsInfo := serialport.QSerialPortInfo{}
 	for _, serialInfo := range serialsInfo.AvailablePorts() {
-		fmt.Println(serialInfo.PortName())
+		portNameCombox.AddItem(serialInfo.PortName(), core.NewQVariant())
 	}
+
+	buadCombox.AddItems([]string{"115200", "57600", "38400", "19200", "9600"})
+	dataBitCombox.AddItems([]string{"8", "7"})
+	checkBitCombox.AddItems([]string{"None", "Even", "Odd", "Mark", "Space"})
+	stopBitCombox.AddItems([]string{"1", "1.5", "2"})
+	asciiReceiveButton.SetChecked(true)
+	asciiSendButton.SetChecked(true)
+
+	/// 控件功能绑定
+	sendButton.ConnectClicked(func(checked bool) { ///< 发送按钮
+		if mainWindow.portOpenFlag {
+			portNameCombox.SetDisabled(true)
+			buadCombox.SetDisabled(true)
+			checkBitCombox.SetDisabled(true)
+			dataBitCombox.SetDisabled(true)
+			stopBitCombox.SetDisabled(true)
+			sendButton.SetText("发  送")
+		} else {
+			portNameCombox.SetDisabled(false)
+			buadCombox.SetDisabled(false)
+			checkBitCombox.SetDisabled(false)
+			dataBitCombox.SetDisabled(false)
+			stopBitCombox.SetDisabled(false)
+			sendButton.SetText("打开串口")
+		}
+
+		mainWindow.portOpenFlag = !mainWindow.portOpenFlag
+	})
+
+	openPortToolButton.ConnectClicked(func(checked bool) {
+		if checked {
+			openPortToolButton.SetToolTip("关闭串口")
+		} else {
+			openPortToolButton.SetToolTip("打开串口")
+		}
+	})
+
+	advancedButton.ConnectClicked(func(checked bool) { ///< 高级发送按钮
+		if advancedWidget.IsHidden() {
+			advancedWidget.Show()
+		} else {
+			advancedWidget.Hide()
+		}
+	})
 
 	return
 }
