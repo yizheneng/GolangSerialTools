@@ -2,7 +2,10 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"os"
 	_ "reflect"
 	"strconv"
 
@@ -33,18 +36,24 @@ type MainWindow struct {
 	displayTimeCheckBox       *widgets.QCheckBox
 
 	/// 数据显示
-	receiveDataDisplay *widgets.QTextEdit
-	sendDataDisplay    *widgets.QTextEdit
+	receiveDataDisplay    *widgets.QTextEdit
+	sendDataDisplay       *widgets.QTextEdit
+	historySendListWidget *widgets.QTableWidget
 
 	/// 数据缓存
 	receiveDataBuf   *core.QByteArray
 	autoNewLineTimer *core.QTimer
 }
 
+type SettingType struct {
+	SendHistorys []string
+}
+
 func NewMainwindow() (mainWindow *MainWindow) {
 	mainWindow = &MainWindow{portOpenFlag: false}
 	mainWindow.QWidget = widgets.NewQWidget(nil, 0)
-	mainWindow.SetMinimumSize2(300, 200)
+	mainWindow.SetMinimumWidth(400)
+	mainWindow.SetFixedHeight(600)
 	mainWindow.SetWindowTitle("串口调试工具")
 
 	mainWindow.receiveDataBuf = core.NewQByteArray()
@@ -58,13 +67,16 @@ func NewMainwindow() (mainWindow *MainWindow) {
 	settingLayout := widgets.NewQVBoxLayout()
 	dataDisplayLayout := widgets.NewQVBoxLayout()
 	toolBar := widgets.NewQToolBar("工具栏", nil)
-	historySendListWidget := widgets.NewQListWidget(nil) ///< 发送历史LIST
+	mainWindow.historySendListWidget = widgets.NewQTableWidget(nil) ///< 发送历史LIST
+	mainWindow.historySendListWidget.SetColumnCount(1)
+	mainWindow.historySendListWidget.SetHorizontalHeaderLabels([]string{"历史数据"})
+	mainWindow.historySendListWidget.HorizontalHeader().SetStretchLastSection(true)
 
 	mainLayout.AddWidget(toolBar, 0, 0)
 	mainLayout.AddLayout(widgetsLayout, 0)
 	widgetsLayout.AddLayout(settingLayout, 0)
 	widgetsLayout.AddLayout(dataDisplayLayout, 0)
-	widgetsLayout.AddWidget(historySendListWidget, 0, 0)
+	widgetsLayout.AddWidget(mainWindow.historySendListWidget, 0, 0)
 
 	/// 主要布局
 	portSettingGroup := widgets.NewQGroupBox2("串口配置", nil)
@@ -108,7 +120,9 @@ func NewMainwindow() (mainWindow *MainWindow) {
 	receiveSeetingLayout.AddWidget(mainWindow.displayTimeCheckBox, 2, 0, 0)
 	/// 发送设置
 	mainWindow.asciiSendButton = widgets.NewQRadioButton2("ASCII", nil)
+	mainWindow.asciiSendButton.ConnectClicked(mainWindow.asciiSendButtonClicked)
 	hexSendButton := widgets.NewQRadioButton2("Hex", nil)
+	hexSendButton.ConnectClicked(mainWindow.asciiSendButtonClicked)
 	reSendCheckButton := widgets.NewQCheckBox2("重复发送:", nil)
 	reSendSpinBox := widgets.NewQSpinBox(nil)
 	reSendLabel := widgets.NewQLabel2("ms", nil, 0)
@@ -123,8 +137,10 @@ func NewMainwindow() (mainWindow *MainWindow) {
 	mainWindow.sendDataDisplay = widgets.NewQTextEdit(nil)
 	sendButtonLayout := widgets.NewQVBoxLayout()
 	mainWindow.sendButton = widgets.NewQPushButton2("打开串口", nil)
+	clearSendButton := widgets.NewQPushButton2("清除输入", nil)
 	advancedButton := widgets.NewQPushButton2("高级发送>>", nil)
 	sendButtonLayout.AddWidget(mainWindow.sendButton, 0, 0)
+	sendButtonLayout.AddWidget(clearSendButton, 0, 0)
 	sendButtonLayout.AddWidget(advancedButton, 0, 0)
 	sendDataDisplayLayout.AddWidget(mainWindow.sendDataDisplay, 0, 0)
 	sendDataDisplayLayout.AddLayout(sendButtonLayout, 0)
@@ -148,9 +164,9 @@ func NewMainwindow() (mainWindow *MainWindow) {
 
 	/// 高级发送显示
 	advancedWidget := widgets.NewQWidget(nil, 0)
-	advancedWidget.SetMinimumHeight(100)
+	advancedWidget.SetFixedHeight(100)
 	advancedWidget.Hide()
-	dataDisplayLayout.AddWidget(advancedWidget, 0, 0)
+	mainLayout.AddWidget(advancedWidget, 0, 0)
 
 	/// 工具栏
 	toolBar.SetObjectName("toolbar")
@@ -165,6 +181,22 @@ func NewMainwindow() (mainWindow *MainWindow) {
 	serialsInfo := serialport.QSerialPortInfo{}
 	for _, serialInfo := range serialsInfo.AvailablePorts() {
 		mainWindow.portNameCombox.AddItem(serialInfo.PortName(), core.NewQVariant())
+	}
+
+	file, fileErr := os.OpenFile("setting.json", os.O_RDONLY, 0666)
+	defer file.Close()
+	settingData, _ := ioutil.ReadAll(file)
+
+	settings := &SettingType{}
+	jsonErr := json.Unmarshal(settingData, &settings)
+	/// 历史数据界面数据初始化
+	if jsonErr == nil && fileErr == nil {
+		mainWindow.historySendListWidget.SetRowCount(len(settings.SendHistorys))
+		for i := 0; i < len(settings.SendHistorys); i++ {
+			mainWindow.historySendListWidget.SetItem(i, 0, widgets.NewQTableWidgetItem2(settings.SendHistorys[i], 0))
+		}
+	} else {
+		fmt.Errorf("Open file error Or json Unmarshal error")
 	}
 
 	mainWindow.buadCombox.AddItems([]string{"115200", "57600", "38400", "19200", "9600"})
@@ -200,9 +232,21 @@ func NewMainwindow() (mainWindow *MainWindow) {
 	advancedButton.ConnectClicked(func(checked bool) { ///< 高级发送按钮
 		if advancedWidget.IsHidden() {
 			advancedWidget.Show()
+			mainWindow.SetFixedHeight(mainWindow.Height() + advancedWidget.Height() + mainLayout.Spacing())
+			//			mainWindow.SetGeometry2(mainWindow.X(), mainWindow.Y(), mainWindow.Width())
 		} else {
+			//			mainWindow.SetGeometry2(mainWindow.X(), mainWindow.Y(), mainWindow.Width(), mainWindow.Height()-advancedWidget.Height())
+			mainWindow.SetFixedHeight(mainWindow.Height() - advancedWidget.Height() - mainLayout.Spacing())
 			advancedWidget.Hide()
 		}
+	})
+	/// 清除输入按钮按下
+	clearSendButton.ConnectClicked(func(checked bool) {
+		mainWindow.sendDataDisplay.Clear()
+	})
+	/// 界面关闭
+	mainWindow.ConnectCloseEvent(func(event *gui.QCloseEvent) {
+		mainWindow.closeDispose()
 	})
 
 	return
@@ -283,7 +327,27 @@ func (mainWindow *MainWindow) closeSerialPort() {
 
 /// 发送数据
 func (mainWindow *MainWindow) sendData() {
+	sendDataString := mainWindow.sendDataDisplay.ToPlainText()
+	if len(sendDataString) <= 0 {
+		return
+	}
 
+	if mainWindow.asciiSendButton.IsChecked() {
+		mainWindow.serialPort.Write2(sendDataString)
+	} else {
+
+	}
+
+	if sendDataString == "" {
+		return
+	}
+
+	if sendDataString != mainWindow.historySendListWidget.Item(0, 0).Text() {
+		mainWindow.historySendListWidget.InsertRow(0)
+		tableItem := widgets.NewQTableWidgetItem2(sendDataString, 0)
+		tableItem.SetToolTip(sendDataString)
+		mainWindow.historySendListWidget.SetItem(0, 0, tableItem)
+	}
 }
 
 /// 读取串口数据
@@ -294,6 +358,7 @@ func (mainWindow *MainWindow) readData() {
 	mainWindow.receiveDataBuf.Append(mainWindow.serialPort.ReadAll())
 }
 
+/// 自动换行定时器回调
 func (mainWindow *MainWindow) receiveAutoNewLineTimeOut() {
 	if mainWindow.receiveDataBuf.Size() <= 0 {
 		return
@@ -316,15 +381,13 @@ func (mainWindow *MainWindow) receiveAutoNewLineTimeOut() {
 		stringData = tempString
 	}
 
-	fmt.Println(stringData + "--")
-
 	if mainWindow.displayTimeCheckBox.IsChecked() {
 		currentTime := core.QDateTime_CurrentDateTime()
 		stringData = currentTime.ToString("hh:mm:ss.zzz: ") + stringData
 	}
 
 	workCursor := mainWindow.receiveDataDisplay.TextCursor()
-	workCursor.MovePosition(gui.QTextCursor__EndOfBlock, gui.QTextCursor__MoveAnchor, 1)
+	workCursor.MovePosition(gui.QTextCursor__End, gui.QTextCursor__MoveAnchor, 1)
 	if mainWindow.autoNewLineReciveCheckBox.IsChecked() {
 		mainWindow.receiveDataDisplay.InsertHtml(stringData)
 		mainWindow.receiveDataDisplay.InsertPlainText("\n")
@@ -334,4 +397,28 @@ func (mainWindow *MainWindow) receiveAutoNewLineTimeOut() {
 	mainWindow.receiveDataDisplay.VerticalScrollBar().SetValue(mainWindow.receiveDataDisplay.VerticalScrollBar().Maximum())
 
 	mainWindow.receiveDataBuf.Clear()
+}
+
+/// 十六进制和字符串发送切换回掉
+func (mainWindow *MainWindow) asciiSendButtonClicked(checked bool) {
+	if mainWindow.asciiSendButton.IsChecked() {
+		//		rx1 = QRegExp("([a-fA-F0-9]{2}[ ]{1})*")
+	} else {
+
+	}
+}
+
+/// 关闭时的处理
+func (mainWindow *MainWindow) closeDispose() {
+	settings := &SettingType{}
+	/// 历史数据界面数据初始化
+	for i := 0; i < mainWindow.historySendListWidget.RowCount(); i++ {
+		settings.SendHistorys = append(settings.SendHistorys, mainWindow.historySendListWidget.Item(i, 0).Text())
+	}
+	fmt.Println(settings.SendHistorys)
+	byteData, err := json.Marshal(&settings)
+	fmt.Println(string(byteData))
+	if err == nil {
+		ioutil.WriteFile("setting.json", byteData, os.ModeCharDevice)
+	}
 }

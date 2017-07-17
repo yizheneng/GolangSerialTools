@@ -21,7 +21,6 @@ func main() {
 	if err == nil {
 		qssString, err := ioutil.ReadAll(file)
 		if err == nil {
-			fmt.Println(string(qssString))
 			app.SetStyleSheet(string(qssString))
 		}
 	}
