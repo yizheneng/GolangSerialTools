@@ -195,6 +195,7 @@ func NewMainwindow() (mainWindow *MainWindow) {
 		mainWindow.historySendListWidget.SetRowCount(len(settings.SendHistorys))
 		for i := 0; i < len(settings.SendHistorys); i++ {
 			mainWindow.historySendListWidget.SetItem(i, 0, widgets.NewQTableWidgetItem2(settings.SendHistorys[i], 0))
+			mainWindow.historySendListWidget.Item(i, 0).SetToolTip(settings.SendHistorys[i])
 		}
 	} else {
 		fmt.Errorf("Open file error Or json Unmarshal error")
