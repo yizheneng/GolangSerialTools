@@ -8,6 +8,7 @@ import (
 	"os"
 	_ "reflect"
 	"strconv"
+	"strings"
 
 	"github.com/therecipe/qt/core"
 	"github.com/therecipe/qt/gui"
@@ -120,9 +121,9 @@ func NewMainwindow() (mainWindow *MainWindow) {
 	receiveSeetingLayout.AddWidget(mainWindow.displayTimeCheckBox, 2, 0, 0)
 	/// 发送设置
 	mainWindow.asciiSendButton = widgets.NewQRadioButton2("ASCII", nil)
-	mainWindow.asciiSendButton.ConnectClicked(mainWindow.asciiSendButtonClicked)
+	//	mainWindow.asciiSendButton.ConnectClicked(mainWindow.asciiSendButtonClicked)
 	hexSendButton := widgets.NewQRadioButton2("Hex", nil)
-	hexSendButton.ConnectClicked(mainWindow.asciiSendButtonClicked)
+	//	hexSendButton.ConnectClicked(mainWindow.asciiSendButtonClicked)
 	reSendCheckButton := widgets.NewQCheckBox2("重复发送:", nil)
 	reSendSpinBox := widgets.NewQSpinBox(nil)
 	reSendLabel := widgets.NewQLabel2("ms", nil, 0)
@@ -248,6 +249,10 @@ func NewMainwindow() (mainWindow *MainWindow) {
 	mainWindow.ConnectCloseEvent(func(event *gui.QCloseEvent) {
 		mainWindow.closeDispose()
 	})
+	/// 历史发送列表单击
+	mainWindow.historySendListWidget.ConnectCellClicked(func(row, column int) {
+		mainWindow.sendDataDisplay.SetPlainText(mainWindow.historySendListWidget.Item(row, column).Text())
+	})
 
 	return
 }
@@ -335,7 +340,33 @@ func (mainWindow *MainWindow) sendData() {
 	if mainWindow.asciiSendButton.IsChecked() {
 		mainWindow.serialPort.Write2(sendDataString)
 	} else {
+		rx := core.NewQRegExp2("([a-fA-F0-9]{2}[ ]{0,1})*", core.Qt__CaseSensitive, core.QRegExp__RegExp)
+		rx.IndexIn(sendDataString, 0, core.QRegExp__CaretAtZero)
+		resultList := rx.CapturedTexts()
+		if len(resultList) < 1 {
+			return
+		}
+		resultString := resultList[0]
+		var sendData []byte
+		for _, byteString := range strings.Split(resultString, " ") {
+			if byteString == "" {
+				continue
+			}
 
+			if len(byteString) <= 2 {
+				val, _ := strconv.ParseUint(byteString, 16, 8)
+				sendData = append(sendData, byte(val))
+			} else {
+				byteStringSize := len(byteString)
+				for i := 0; i < byteStringSize/2; i++ {
+					tempString := byteString[i*2 : i*2+2]
+					val, _ := strconv.ParseUint(tempString, 16, 8)
+					sendData = append(sendData, byte(val))
+				}
+			}
+		}
+		fmt.Println("---Result:", sendData)
+		mainWindow.serialPort.Write2(string(sendData))
 	}
 
 	if sendDataString == "" {
@@ -397,15 +428,6 @@ func (mainWindow *MainWindow) receiveAutoNewLineTimeOut() {
 	mainWindow.receiveDataDisplay.VerticalScrollBar().SetValue(mainWindow.receiveDataDisplay.VerticalScrollBar().Maximum())
 
 	mainWindow.receiveDataBuf.Clear()
-}
-
-/// 十六进制和字符串发送切换回掉
-func (mainWindow *MainWindow) asciiSendButtonClicked(checked bool) {
-	if mainWindow.asciiSendButton.IsChecked() {
-		//		rx1 = QRegExp("([a-fA-F0-9]{2}[ ]{1})*")
-	} else {
-
-	}
 }
 
 /// 关闭时的处理
