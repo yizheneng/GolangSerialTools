@@ -171,12 +171,31 @@ func NewMainwindow() (mainWindow *MainWindow) {
 
 	/// 工具栏
 	toolBar.SetObjectName("toolbar")
-	toolBar.SetMinimumHeight(30)
+	toolBar.SetMinimumHeight(40)
 	mainWindow.openPortToolButton = widgets.NewQToolButton(nil)
 	mainWindow.openPortToolButton.SetObjectName("openPortToolButton")
 	mainWindow.openPortToolButton.SetToolTip("打开串口")
 	mainWindow.openPortToolButton.SetCheckable(true)
+	mainWindow.openPortToolButton.SetFixedSize2(40, 40)
+	clearReceiveToolButton := widgets.NewQToolButton(nil)
+	clearReceiveToolButton.SetObjectName("clearReceiveToolButton")
+	clearReceiveToolButton.SetToolTip("清除接收数据")
+	clearReceiveToolButton.SetCheckable(true)
+	clearReceiveToolButton.SetFixedSize2(40, 40)
+	clearSendToolButton := widgets.NewQToolButton(nil)
+	clearSendToolButton.SetObjectName("clearSendToolButton")
+	clearSendToolButton.SetToolTip("清除发送数据")
+	clearSendToolButton.SetCheckable(true)
+	clearSendToolButton.SetFixedSize2(40, 40)
+	clearHistoryToolButton := widgets.NewQToolButton(nil)
+	clearHistoryToolButton.SetObjectName("clearHistoryToolButton")
+	clearHistoryToolButton.SetToolTip("清除历史记录")
+	clearHistoryToolButton.SetCheckable(true)
+	clearHistoryToolButton.SetFixedSize2(40, 40)
 	toolBar.AddWidget(mainWindow.openPortToolButton)
+	toolBar.AddWidget(clearReceiveToolButton)
+	toolBar.AddWidget(clearSendToolButton)
+	toolBar.AddWidget(clearHistoryToolButton)
 
 	/// 控件数据初始化
 	serialsInfo := serialport.QSerialPortInfo{}
@@ -253,6 +272,18 @@ func NewMainwindow() (mainWindow *MainWindow) {
 	/// 历史发送列表单击
 	mainWindow.historySendListWidget.ConnectCellClicked(func(row, column int) {
 		mainWindow.sendDataDisplay.SetPlainText(mainWindow.historySendListWidget.Item(row, column).Text())
+	})
+	/// 清除接收按钮
+	clearReceiveToolButton.ConnectClicked(func(checked bool) {
+		mainWindow.receiveDataDisplay.Clear()
+	})
+	/// 清除发送按钮按下
+	clearSendToolButton.ConnectClicked(func(checked bool) {
+		mainWindow.sendDataDisplay.Clear()
+	})
+	/// 清除发送历史按钮按下
+	clearHistoryToolButton.ConnectClicked(func(checked bool) {
+		mainWindow.historySendListWidget.SetRowCount(0)
 	})
 
 	return
