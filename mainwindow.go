@@ -201,10 +201,17 @@ func NewMainwindow() (mainWindow *MainWindow) {
 	clearHistoryToolButton.SetToolTip("清除历史记录")
 	clearHistoryToolButton.SetCheckable(true)
 	clearHistoryToolButton.SetFixedSize2(40, 40)
+	infoToolButton := widgets.NewQToolButton(nil)
+	infoToolButton.SetObjectName("infoToolButton")
+	infoToolButton.SetCheckable(true)
+	infoToolButton.SetFixedSize2(40, 40)
 	toolBar.AddWidget(mainWindow.openPortToolButton)
+	toolBar.AddSeparator()
 	toolBar.AddWidget(clearReceiveToolButton)
 	toolBar.AddWidget(clearSendToolButton)
 	toolBar.AddWidget(clearHistoryToolButton)
+	toolBar.AddSeparator()
+	toolBar.AddWidget(infoToolButton)
 
 	/// 控件数据初始化
 	serialsInfo := serialport.QSerialPortInfo{}
@@ -304,6 +311,10 @@ func NewMainwindow() (mainWindow *MainWindow) {
 	/// 重复发送间隔发生变化
 	mainWindow.reSendSpinBox.ConnectValueChanged(func(newVal int) {
 		mainWindow.reSendTimer.Start(newVal)
+	})
+	/// 关于按钮按下
+	infoToolButton.ConnectClicked(func(checked bool) {
+		NewAboutWindow(mainWindow).Show()
 	})
 	return
 }

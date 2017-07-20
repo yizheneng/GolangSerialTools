@@ -22,6 +22,9 @@ QToolButton#clearHistoryToolButton{
 	border-image: url(edit_clear_history.png);
 }
 
+QToolButton#infoToolButton{
+	border-image: url(information.ico);
+}
 
 .QToolButton:hover {
 	border-style:solid;
