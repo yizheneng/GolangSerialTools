@@ -78,6 +78,7 @@ func NewMainwindow() (mainWindow *MainWindow) {
 	mainWindow.historySendListWidget.SetColumnCount(1)
 	mainWindow.historySendListWidget.SetHorizontalHeaderLabels([]string{"历史数据"})
 	mainWindow.historySendListWidget.HorizontalHeader().SetStretchLastSection(true)
+	mainWindow.historySendListWidget.SetEditTriggers(widgets.QAbstractItemView__NoEditTriggers)
 
 	mainLayout.AddWidget(toolBar, 0, 0)
 	mainLayout.AddLayout(widgetsLayout, 0)
@@ -127,9 +128,7 @@ func NewMainwindow() (mainWindow *MainWindow) {
 	receiveSeetingLayout.AddWidget(mainWindow.displayTimeCheckBox, 2, 0, 0)
 	/// 发送设置
 	mainWindow.asciiSendButton = widgets.NewQRadioButton2("ASCII", nil)
-	//	mainWindow.asciiSendButton.ConnectClicked(mainWindow.asciiSendButtonClicked)
 	hexSendButton := widgets.NewQRadioButton2("Hex", nil)
-	//	hexSendButton.ConnectClicked(mainWindow.asciiSendButtonClicked)
 	mainWindow.reSendCheckButton = widgets.NewQCheckBox2("重复发送:", nil)
 	mainWindow.reSendSpinBox = widgets.NewQSpinBox(nil)
 	mainWindow.reSendSpinBox.SetMinimum(1)
@@ -270,9 +269,7 @@ func NewMainwindow() (mainWindow *MainWindow) {
 		if advancedWidget.IsHidden() {
 			advancedWidget.Show()
 			mainWindow.SetFixedHeight(mainWindow.Height() + advancedWidget.Height() + mainLayout.Spacing())
-			//			mainWindow.SetGeometry2(mainWindow.X(), mainWindow.Y(), mainWindow.Width())
 		} else {
-			//			mainWindow.SetGeometry2(mainWindow.X(), mainWindow.Y(), mainWindow.Width(), mainWindow.Height()-advancedWidget.Height())
 			mainWindow.SetFixedHeight(mainWindow.Height() - advancedWidget.Height() - mainLayout.Spacing())
 			advancedWidget.Hide()
 		}
@@ -288,6 +285,11 @@ func NewMainwindow() (mainWindow *MainWindow) {
 	/// 历史发送列表单击
 	mainWindow.historySendListWidget.ConnectCellClicked(func(row, column int) {
 		mainWindow.sendDataDisplay.SetPlainText(mainWindow.historySendListWidget.Item(row, column).Text())
+	})
+	/// 历史发送列表双击
+	mainWindow.historySendListWidget.ConnectCellDoubleClicked(func(row, column int) {
+		text := mainWindow.historySendListWidget.Item(row, column).Text()
+		mainWindow.sendDateWithDataToSerial(text)
 	})
 	/// 清除接收按钮
 	clearReceiveToolButton.ConnectClicked(func(checked bool) {
@@ -400,11 +402,36 @@ func (mainWindow *MainWindow) sendData() {
 		return
 	}
 
-	if mainWindow.asciiSendButton.IsChecked() {
-		mainWindow.sendStringBuf = sendDataString
+	if mainWindow.sendButton.Text() == "停止发送" {
+		mainWindow.sendButton.SetText("发送")
+		mainWindow.reSendTimer.Stop()
+		return
+	}
+
+	if mainWindow.reSendCheckButton.IsChecked() {
+		mainWindow.sendButton.SetText("停止发送")
+		mainWindow.reSendTimer.Start(mainWindow.reSendSpinBox.Value())
 	} else {
+		mainWindow.sendDateWithDataToSerial(sendDataString)
+	}
+
+	if sendDataString == "" {
+		return
+	}
+
+	if sendDataString != mainWindow.historySendListWidget.Item(0, 0).Text() {
+		mainWindow.historySendListWidget.InsertRow(0)
+		tableItem := widgets.NewQTableWidgetItem2(sendDataString, 0)
+		tableItem.SetToolTip(sendDataString)
+		mainWindow.historySendListWidget.SetItem(0, 0, tableItem)
+	}
+}
+
+/// 发送数据到串口
+func (mainWindow *MainWindow) sendDateWithDataToSerial(data string) {
+	if !mainWindow.asciiSendButton.IsChecked() {
 		rx := core.NewQRegExp2("([a-fA-F0-9]{2}[ ]{0,1})*", core.Qt__CaseSensitive, core.QRegExp__RegExp)
-		rx.IndexIn(sendDataString, 0, core.QRegExp__CaretAtZero)
+		rx.IndexIn(data, 0, core.QRegExp__CaretAtZero)
 		resultList := rx.CapturedTexts()
 		if len(resultList) < 1 {
 			return
@@ -429,31 +456,11 @@ func (mainWindow *MainWindow) sendData() {
 			}
 		}
 		fmt.Println("---Result:", sendData)
-		mainWindow.sendStringBuf = string(sendData)
+		data = string(sendData)
 	}
 
-	if mainWindow.sendButton.Text() == "停止发送" {
-		mainWindow.sendButton.SetText("发送")
-		mainWindow.reSendTimer.Stop()
-		return
-	}
-
-	if mainWindow.reSendCheckButton.IsChecked() {
-		mainWindow.sendButton.SetText("停止发送")
-		mainWindow.reSendTimer.Start(mainWindow.reSendSpinBox.Value())
-	} else {
-		mainWindow.serialPort.Write2(mainWindow.sendStringBuf)
-	}
-
-	if sendDataString == "" {
-		return
-	}
-
-	if sendDataString != mainWindow.historySendListWidget.Item(0, 0).Text() {
-		mainWindow.historySendListWidget.InsertRow(0)
-		tableItem := widgets.NewQTableWidgetItem2(sendDataString, 0)
-		tableItem.SetToolTip(sendDataString)
-		mainWindow.historySendListWidget.SetItem(0, 0, tableItem)
+	if mainWindow.serialPort.IsOpen() {
+		mainWindow.serialPort.Write2(data)
 	}
 }
 
@@ -524,37 +531,5 @@ func (mainWindow *MainWindow) closeDispose() {
 /// 重复发送定时器超时
 func (mainWindow *MainWindow) reSendTimeOut() {
 	sendDataString := mainWindow.sendDataDisplay.ToPlainText()
-
-	if mainWindow.asciiSendButton.IsChecked() {
-		mainWindow.sendStringBuf = sendDataString
-	} else {
-		rx := core.NewQRegExp2("([a-fA-F0-9]{2}[ ]{0,1})*", core.Qt__CaseSensitive, core.QRegExp__RegExp)
-		rx.IndexIn(sendDataString, 0, core.QRegExp__CaretAtZero)
-		resultList := rx.CapturedTexts()
-		if len(resultList) < 1 {
-			return
-		}
-		resultString := resultList[0]
-		var sendData []byte
-		for _, byteString := range strings.Split(resultString, " ") {
-			if byteString == "" {
-				continue
-			}
-
-			if len(byteString) <= 2 {
-				val, _ := strconv.ParseUint(byteString, 16, 8)
-				sendData = append(sendData, byte(val))
-			} else {
-				byteStringSize := len(byteString)
-				for i := 0; i < byteStringSize/2; i++ {
-					tempString := byteString[i*2 : i*2+2]
-					val, _ := strconv.ParseUint(tempString, 16, 8)
-					sendData = append(sendData, byte(val))
-				}
-			}
-		}
-		fmt.Println("---Result:", sendData)
-		mainWindow.sendStringBuf = string(sendData)
-	}
-	mainWindow.serialPort.Write2(mainWindow.sendStringBuf)
+	mainWindow.sendDateWithDataToSerial(sendDataString)
 }
