@@ -35,6 +35,8 @@ type MainWindow struct {
 	openPortToolButton        *widgets.QToolButton
 	autoNewLineReciveCheckBox *widgets.QCheckBox
 	displayTimeCheckBox       *widgets.QCheckBox
+	reSendCheckButton         *widgets.QCheckBox
+	reSendSpinBox             *widgets.QSpinBox
 
 	/// 数据显示
 	receiveDataDisplay    *widgets.QTextEdit
@@ -44,6 +46,8 @@ type MainWindow struct {
 	/// 数据缓存
 	receiveDataBuf   *core.QByteArray
 	autoNewLineTimer *core.QTimer
+	reSendTimer      *core.QTimer /// 重复发送定时器
+	sendStringBuf    string       /// 发送数据缓存区
 }
 
 type SettingType struct {
@@ -62,6 +66,8 @@ func NewMainwindow() (mainWindow *MainWindow) {
 	mainWindow.serialPort.ConnectReadyRead(mainWindow.readData)
 	mainWindow.autoNewLineTimer = core.NewQTimer(nil)
 	mainWindow.autoNewLineTimer.ConnectTimeout(mainWindow.receiveAutoNewLineTimeOut)
+	mainWindow.reSendTimer = core.NewQTimer(nil)
+	mainWindow.reSendTimer.ConnectTimeout(mainWindow.reSendTimeOut)
 
 	mainLayout := widgets.NewQVBoxLayout()
 	widgetsLayout := widgets.NewQHBoxLayout()
@@ -124,13 +130,16 @@ func NewMainwindow() (mainWindow *MainWindow) {
 	//	mainWindow.asciiSendButton.ConnectClicked(mainWindow.asciiSendButtonClicked)
 	hexSendButton := widgets.NewQRadioButton2("Hex", nil)
 	//	hexSendButton.ConnectClicked(mainWindow.asciiSendButtonClicked)
-	reSendCheckButton := widgets.NewQCheckBox2("重复发送:", nil)
-	reSendSpinBox := widgets.NewQSpinBox(nil)
+	mainWindow.reSendCheckButton = widgets.NewQCheckBox2("重复发送:", nil)
+	mainWindow.reSendSpinBox = widgets.NewQSpinBox(nil)
+	mainWindow.reSendSpinBox.SetMinimum(1)
+	mainWindow.reSendSpinBox.SetMaximum(99999)
+	mainWindow.reSendSpinBox.SetValue(1000)
 	reSendLabel := widgets.NewQLabel2("ms", nil, 0)
 	sendSettingLayout.AddWidget(mainWindow.asciiSendButton, 0, 0, 0)
 	sendSettingLayout.AddWidget(hexSendButton, 0, 1, 0)
-	sendSettingLayout.AddWidget3(reSendCheckButton, 1, 0, 1, 2, 0)
-	sendSettingLayout.AddWidget(reSendSpinBox, 2, 0, 0)
+	sendSettingLayout.AddWidget3(mainWindow.reSendCheckButton, 1, 0, 1, 2, 0)
+	sendSettingLayout.AddWidget(mainWindow.reSendSpinBox, 2, 0, 0)
 	sendSettingLayout.AddWidget(reSendLabel, 2, 1, 0)
 
 	/// 发送数据显示
@@ -285,7 +294,17 @@ func NewMainwindow() (mainWindow *MainWindow) {
 	clearHistoryToolButton.ConnectClicked(func(checked bool) {
 		mainWindow.historySendListWidget.SetRowCount(0)
 	})
-
+	/// 重复发送按钮按下
+	mainWindow.reSendCheckButton.ConnectClicked(func(checked bool) {
+		if !checked && (mainWindow.sendButton.Text() == "停止发送") {
+			mainWindow.sendButton.SetText("发送")
+			mainWindow.reSendTimer.Stop()
+		}
+	})
+	/// 重复发送间隔发生变化
+	mainWindow.reSendSpinBox.ConnectValueChanged(func(newVal int) {
+		mainWindow.reSendTimer.Start(newVal)
+	})
 	return
 }
 
@@ -366,11 +385,12 @@ func (mainWindow *MainWindow) closeSerialPort() {
 func (mainWindow *MainWindow) sendData() {
 	sendDataString := mainWindow.sendDataDisplay.ToPlainText()
 	if len(sendDataString) <= 0 {
+		widgets.QMessageBox_Warning(mainWindow, "警告", "请输入数据进行发送！！", widgets.QMessageBox__Ok, widgets.QMessageBox__NoButton)
 		return
 	}
 
 	if mainWindow.asciiSendButton.IsChecked() {
-		mainWindow.serialPort.Write2(sendDataString)
+		mainWindow.sendStringBuf = sendDataString
 	} else {
 		rx := core.NewQRegExp2("([a-fA-F0-9]{2}[ ]{0,1})*", core.Qt__CaseSensitive, core.QRegExp__RegExp)
 		rx.IndexIn(sendDataString, 0, core.QRegExp__CaretAtZero)
@@ -398,7 +418,20 @@ func (mainWindow *MainWindow) sendData() {
 			}
 		}
 		fmt.Println("---Result:", sendData)
-		mainWindow.serialPort.Write2(string(sendData))
+		mainWindow.sendStringBuf = string(sendData)
+	}
+
+	if mainWindow.sendButton.Text() == "停止发送" {
+		mainWindow.sendButton.SetText("发送")
+		mainWindow.reSendTimer.Stop()
+		return
+	}
+
+	if mainWindow.reSendCheckButton.IsChecked() {
+		mainWindow.sendButton.SetText("停止发送")
+		mainWindow.reSendTimer.Start(mainWindow.reSendSpinBox.Value())
+	} else {
+		mainWindow.serialPort.Write2(mainWindow.sendStringBuf)
 	}
 
 	if sendDataString == "" {
@@ -429,7 +462,7 @@ func (mainWindow *MainWindow) receiveAutoNewLineTimeOut() {
 
 	data := mainWindow.receiveDataBuf
 	stringData := data.Data()
-	stringData = stringData[:len(stringData)-1]
+	//stringData = stringData[:len(stringData)-1]
 
 	if !mainWindow.asciiReceiveButton.IsChecked() {
 		tempString := ""
@@ -475,4 +508,42 @@ func (mainWindow *MainWindow) closeDispose() {
 	if err == nil {
 		ioutil.WriteFile("setting.json", byteData, os.ModeCharDevice)
 	}
+}
+
+/// 重复发送定时器超时
+func (mainWindow *MainWindow) reSendTimeOut() {
+	sendDataString := mainWindow.sendDataDisplay.ToPlainText()
+
+	if mainWindow.asciiSendButton.IsChecked() {
+		mainWindow.sendStringBuf = sendDataString
+	} else {
+		rx := core.NewQRegExp2("([a-fA-F0-9]{2}[ ]{0,1})*", core.Qt__CaseSensitive, core.QRegExp__RegExp)
+		rx.IndexIn(sendDataString, 0, core.QRegExp__CaretAtZero)
+		resultList := rx.CapturedTexts()
+		if len(resultList) < 1 {
+			return
+		}
+		resultString := resultList[0]
+		var sendData []byte
+		for _, byteString := range strings.Split(resultString, " ") {
+			if byteString == "" {
+				continue
+			}
+
+			if len(byteString) <= 2 {
+				val, _ := strconv.ParseUint(byteString, 16, 8)
+				sendData = append(sendData, byte(val))
+			} else {
+				byteStringSize := len(byteString)
+				for i := 0; i < byteStringSize/2; i++ {
+					tempString := byteString[i*2 : i*2+2]
+					val, _ := strconv.ParseUint(tempString, 16, 8)
+					sendData = append(sendData, byte(val))
+				}
+			}
+		}
+		fmt.Println("---Result:", sendData)
+		mainWindow.sendStringBuf = string(sendData)
+	}
+	mainWindow.serialPort.Write2(mainWindow.sendStringBuf)
 }
