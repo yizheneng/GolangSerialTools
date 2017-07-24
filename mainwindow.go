@@ -18,8 +18,10 @@ import (
 
 type MainWindow struct {
 	*widgets.QWidget
-	serialPort   *serialport.QSerialPort
-	portOpenFlag bool
+	serialPort         *serialport.QSerialPort
+	advancedSendWidget *AdvancedSendWidget
+	portOpenFlag       bool
+	dispalyTextCursor  *gui.QTextCursor ///< 上次光标的记忆
 
 	/// 串口参数控件
 	portNameCombox     *widgets.QComboBox
@@ -156,8 +158,12 @@ func NewMainwindow() (mainWindow *MainWindow) {
 
 	/// 数据显示
 	mainWindow.receiveDataDisplay = widgets.NewQTextEdit(nil)
+	mainWindow.receiveDataDisplay.SetReadOnly(true)
+	mainWindow.receiveDataDisplay.InstallEventFilter(mainWindow)
 	dataDisplayLayout.AddWidget(mainWindow.receiveDataDisplay, 0, 0)
 	dataDisplayLayout.AddLayout(sendDataDisplayLayout, 0)
+	mainWindow.dispalyTextCursor = gui.NewQTextCursor()
+	mainWindow.dispalyTextCursor = mainWindow.receiveDataDisplay.TextCursor()
 
 	settingLayout.AddWidget(portSettingGroup, 0, 0)
 	settingLayout.AddWidget(receiveSettingGroup, 0, 0)
@@ -172,10 +178,10 @@ func NewMainwindow() (mainWindow *MainWindow) {
 	mainWindow.SetLayout(mainLayout)
 
 	/// 高级发送显示
-	advancedWidget := widgets.NewQWidget(nil, 0)
-	advancedWidget.SetFixedHeight(100)
-	advancedWidget.Hide()
-	mainLayout.AddWidget(advancedWidget, 0, 0)
+	mainWindow.advancedSendWidget = NewAdvancedSendWidget()
+	mainWindow.advancedSendWidget.SetFixedHeight(100)
+	mainWindow.advancedSendWidget.Hide()
+	mainLayout.AddWidget(mainWindow.advancedSendWidget, 0, 0)
 
 	/// 工具栏
 	toolBar.SetObjectName("toolbar")
@@ -235,7 +241,7 @@ func NewMainwindow() (mainWindow *MainWindow) {
 		fmt.Errorf("Open file error Or json Unmarshal error")
 	}
 
-	mainWindow.buadCombox.AddItems([]string{"115200", "57600", "38400", "19200", "9600"})
+	mainWindow.buadCombox.AddItems([]string{"1500000", "115200", "57600", "38400", "19200", "9600"})
 	mainWindow.dataBitCombox.AddItems([]string{"8", "7"})
 	mainWindow.checkBitCombox.AddItems([]string{"None", "Even", "Odd", "Mark", "Space"})
 	mainWindow.stopBitCombox.AddItems([]string{"1", "1.5", "2"})
@@ -266,12 +272,12 @@ func NewMainwindow() (mainWindow *MainWindow) {
 	})
 	/// 高级发送按钮按下
 	advancedButton.ConnectClicked(func(checked bool) { ///< 高级发送按钮
-		if advancedWidget.IsHidden() {
-			advancedWidget.Show()
-			mainWindow.SetFixedHeight(mainWindow.Height() + advancedWidget.Height() + mainLayout.Spacing())
+		if mainWindow.advancedSendWidget.IsHidden() {
+			mainWindow.advancedSendWidget.Show()
+			mainWindow.SetFixedHeight(mainWindow.Height() + mainWindow.advancedSendWidget.Height() + mainLayout.Spacing())
 		} else {
-			mainWindow.SetFixedHeight(mainWindow.Height() - advancedWidget.Height() - mainLayout.Spacing())
-			advancedWidget.Hide()
+			mainWindow.SetFixedHeight(mainWindow.Height() - mainWindow.advancedSendWidget.Height() - mainLayout.Spacing())
+			mainWindow.advancedSendWidget.Hide()
 		}
 	})
 	/// 清除输入按钮按下
@@ -317,6 +323,19 @@ func NewMainwindow() (mainWindow *MainWindow) {
 	/// 关于按钮按下
 	infoToolButton.ConnectClicked(func(checked bool) {
 		NewAboutWindow(mainWindow).Show()
+	})
+	/// 响应键盘事件
+	mainWindow.ConnectEventFilter(func(watched *core.QObject, event *core.QEvent) bool {
+		if event.Type() == core.QEvent__KeyPress {
+			keyEvents := gui.NewQKeyEventFromPointer(event.Pointer())
+
+			if mainWindow.serialPort.IsOpen() {
+				mainWindow.serialPort.Write2(keyEvents.Text()[:1])
+			}
+			fmt.Println("KeyPress:", (keyEvents.Text()[:1]))
+			return true
+		}
+		return false
 	})
 	return
 }
@@ -500,14 +519,14 @@ func (mainWindow *MainWindow) receiveAutoNewLineTimeOut() {
 		stringData = currentTime.ToString("hh:mm:ss.zzz: ") + stringData
 	}
 
-	workCursor := mainWindow.receiveDataDisplay.TextCursor()
-	workCursor.MovePosition(gui.QTextCursor__End, gui.QTextCursor__MoveAnchor, 1)
+	mainWindow.receiveDataDisplay.SetTextCursor(mainWindow.dispalyTextCursor)
 	if mainWindow.autoNewLineReciveCheckBox.IsChecked() {
 		mainWindow.receiveDataDisplay.InsertHtml(stringData)
 		mainWindow.receiveDataDisplay.InsertPlainText("\n")
 	} else {
-		mainWindow.receiveDataDisplay.InsertHtml(stringData)
+		mainWindow.receiveDataDisplay.InsertPlainText(stringData)
 	}
+	mainWindow.dispalyTextCursor = mainWindow.receiveDataDisplay.TextCursor()
 	mainWindow.receiveDataDisplay.VerticalScrollBar().SetValue(mainWindow.receiveDataDisplay.VerticalScrollBar().Maximum())
 
 	mainWindow.receiveDataBuf.Clear()
