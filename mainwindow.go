@@ -328,11 +328,20 @@ func NewMainwindow() (mainWindow *MainWindow) {
 	mainWindow.ConnectEventFilter(func(watched *core.QObject, event *core.QEvent) bool {
 		if event.Type() == core.QEvent__KeyPress {
 			keyEvents := gui.NewQKeyEventFromPointer(event.Pointer())
+			keyText := keyEvents.Text()
+
+			if len(keyText) <= 0 {
+				return false
+			}
+
+			if (int)(keyText[0]) == 3 || (int)(keyText[0]) == 22 {
+				return false
+			}
 
 			if mainWindow.serialPort.IsOpen() {
-				mainWindow.serialPort.Write2(keyEvents.Text()[:1])
+				mainWindow.serialPort.Write2(keyText[:1])
 			}
-			fmt.Println("KeyPress:", (keyEvents.Text()[:1]))
+			fmt.Println("KeyPress:", (int)(keyText[0]))
 			return true
 		}
 		return false
