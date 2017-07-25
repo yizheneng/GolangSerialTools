@@ -60,7 +60,7 @@ func NewMainwindow() (mainWindow *MainWindow) {
 	mainWindow = &MainWindow{portOpenFlag: false}
 	mainWindow.QWidget = widgets.NewQWidget(nil, 0)
 	mainWindow.SetMinimumWidth(400)
-	mainWindow.SetFixedHeight(600)
+	mainWindow.SetMinimumHeight(600)
 	mainWindow.SetWindowTitle("串口调试工具")
 
 	mainWindow.receiveDataBuf = core.NewQByteArray()
@@ -71,22 +71,33 @@ func NewMainwindow() (mainWindow *MainWindow) {
 	mainWindow.reSendTimer = core.NewQTimer(nil)
 	mainWindow.reSendTimer.ConnectTimeout(mainWindow.reSendTimeOut)
 
+	/// 自动分割器
+	mainSplitter := widgets.NewQSplitter2(core.Qt__Vertical, nil)
+	widgetSpiltter := widgets.NewQSplitter2(core.Qt__Horizontal, nil)
+	SettingSpiltter := widgets.NewQSplitter2(core.Qt__Vertical, nil)
+	dataDisplaySpiltter := widgets.NewQSplitter2(core.Qt__Vertical, nil)
+
 	mainLayout := widgets.NewQVBoxLayout()
-	widgetsLayout := widgets.NewQHBoxLayout()
-	settingLayout := widgets.NewQVBoxLayout()
-	dataDisplayLayout := widgets.NewQVBoxLayout()
+	mainLayout.AddWidget(mainSplitter, 0, 0)
 	toolBar := widgets.NewQToolBar("工具栏", nil)
+	toolBar.SetFixedHeight(50)
 	mainWindow.historySendListWidget = widgets.NewQTableWidget(nil) ///< 发送历史LIST
 	mainWindow.historySendListWidget.SetColumnCount(1)
 	mainWindow.historySendListWidget.SetHorizontalHeaderLabels([]string{"历史数据"})
 	mainWindow.historySendListWidget.HorizontalHeader().SetStretchLastSection(true)
 	mainWindow.historySendListWidget.SetEditTriggers(widgets.QAbstractItemView__NoEditTriggers)
 
-	mainLayout.AddWidget(toolBar, 0, 0)
-	mainLayout.AddLayout(widgetsLayout, 0)
-	widgetsLayout.AddLayout(settingLayout, 0)
-	widgetsLayout.AddLayout(dataDisplayLayout, 0)
-	widgetsLayout.AddWidget(mainWindow.historySendListWidget, 0, 0)
+	mainSplitter.AddWidget(toolBar)
+	mainSplitter.AddWidget(widgetSpiltter)
+	mainSplitter.SetStretchFactor(0, 0)
+	mainSplitter.Handle(1).SetDisabled(true)
+
+	widgetSpiltter.AddWidget(SettingSpiltter)
+	widgetSpiltter.AddWidget(dataDisplaySpiltter)
+	widgetSpiltter.AddWidget(mainWindow.historySendListWidget)
+	widgetSpiltter.Handle(1).SetDisabled(true)
+	widgetSpiltter.SetStretchFactor(1, 6)
+	widgetSpiltter.SetStretchFactor(2, 2)
 
 	/// 主要布局
 	portSettingGroup := widgets.NewQGroupBox2("串口配置", nil)
@@ -144,44 +155,46 @@ func NewMainwindow() (mainWindow *MainWindow) {
 	sendSettingLayout.AddWidget(reSendLabel, 2, 1, 0)
 
 	/// 发送数据显示
-	sendDataDisplayLayout := widgets.NewQHBoxLayout()
+	sendDataDisplaySplitter := widgets.NewQSplitter2(core.Qt__Horizontal, nil)
 	mainWindow.sendDataDisplay = widgets.NewQTextEdit(nil)
-	sendButtonLayout := widgets.NewQVBoxLayout()
+	sendButtonSpliter := widgets.NewQSplitter2(core.Qt__Vertical, nil)
 	mainWindow.sendButton = widgets.NewQPushButton2("打开串口", nil)
 	clearSendButton := widgets.NewQPushButton2("清除输入", nil)
 	advancedButton := widgets.NewQPushButton2("高级发送>>", nil)
-	sendButtonLayout.AddWidget(mainWindow.sendButton, 0, 0)
-	sendButtonLayout.AddWidget(clearSendButton, 0, 0)
-	sendButtonLayout.AddWidget(advancedButton, 0, 0)
-	sendDataDisplayLayout.AddWidget(mainWindow.sendDataDisplay, 0, 0)
-	sendDataDisplayLayout.AddLayout(sendButtonLayout, 0)
+	sendButtonSpliter.AddWidget(mainWindow.sendButton)
+	sendButtonSpliter.AddWidget(clearSendButton)
+	sendButtonSpliter.AddWidget(advancedButton)
+	sendDataDisplaySplitter.AddWidget(mainWindow.sendDataDisplay)
+	sendDataDisplaySplitter.AddWidget(sendButtonSpliter)
 
 	/// 数据显示
 	mainWindow.receiveDataDisplay = widgets.NewQTextEdit(nil)
 	mainWindow.receiveDataDisplay.SetReadOnly(true)
 	mainWindow.receiveDataDisplay.InstallEventFilter(mainWindow)
-	dataDisplayLayout.AddWidget(mainWindow.receiveDataDisplay, 0, 0)
-	dataDisplayLayout.AddLayout(sendDataDisplayLayout, 0)
+
+	dataDisplaySpiltter.AddWidget(mainWindow.receiveDataDisplay)
+	dataDisplaySpiltter.AddWidget(sendDataDisplaySplitter)
+	dataDisplaySpiltter.SetStretchFactor(0, 6)
+	dataDisplaySpiltter.SetStretchFactor(1, 1)
+
 	mainWindow.dispalyTextCursor = gui.NewQTextCursor()
 	mainWindow.dispalyTextCursor = mainWindow.receiveDataDisplay.TextCursor()
 
-	settingLayout.AddWidget(portSettingGroup, 0, 0)
-	settingLayout.AddWidget(receiveSettingGroup, 0, 0)
-	settingLayout.AddWidget(sendSettingGroup, 0, 0)
-	settingLayout.AddStretch(20)
+	settingSpacer := widgets.NewQWidget(nil, 0)
+	SettingSpiltter.AddWidget(portSettingGroup)
+	SettingSpiltter.AddWidget(receiveSettingGroup)
+	SettingSpiltter.AddWidget(sendSettingGroup)
+	SettingSpiltter.AddWidget(settingSpacer)
+	SettingSpiltter.Handle(0).SetDisabled(true)
+	SettingSpiltter.Handle(1).SetDisabled(true)
+	SettingSpiltter.Handle(2).SetDisabled(true)
 
-	widgetsLayout.SetStretch(0, 0)
-	widgetsLayout.SetStretch(1, 4)
-	widgetsLayout.SetStretch(2, 1)
-	dataDisplayLayout.SetStretch(0, 5)
-	dataDisplayLayout.SetStretch(1, 1)
 	mainWindow.SetLayout(mainLayout)
 
 	/// 高级发送显示
 	mainWindow.advancedSendWidget = NewAdvancedSendWidget()
-	mainWindow.advancedSendWidget.SetFixedHeight(100)
 	mainWindow.advancedSendWidget.Hide()
-	mainLayout.AddWidget(mainWindow.advancedSendWidget, 0, 0)
+	mainSplitter.AddWidget(mainWindow.advancedSendWidget)
 
 	/// 工具栏
 	toolBar.SetObjectName("toolbar")
@@ -274,9 +287,9 @@ func NewMainwindow() (mainWindow *MainWindow) {
 	advancedButton.ConnectClicked(func(checked bool) { ///< 高级发送按钮
 		if mainWindow.advancedSendWidget.IsHidden() {
 			mainWindow.advancedSendWidget.Show()
-			mainWindow.SetFixedHeight(mainWindow.Height() + mainWindow.advancedSendWidget.Height() + mainLayout.Spacing())
+			//			mainWindow.SetFixedHeight(mainWindow.Height() + mainWindow.advancedSendWidget.Height() + mainLayout.Spacing())
 		} else {
-			mainWindow.SetFixedHeight(mainWindow.Height() - mainWindow.advancedSendWidget.Height() - mainLayout.Spacing())
+			//			mainWindow.SetFixedHeight(mainWindow.Height() - mainWindow.advancedSendWidget.Height() - mainLayout.Spacing())
 			mainWindow.advancedSendWidget.Hide()
 		}
 	})
