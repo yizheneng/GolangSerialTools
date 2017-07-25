@@ -161,11 +161,19 @@ func NewMainwindow() (mainWindow *MainWindow) {
 	mainWindow.sendButton = widgets.NewQPushButton2("打开串口", nil)
 	clearSendButton := widgets.NewQPushButton2("清除输入", nil)
 	advancedButton := widgets.NewQPushButton2("高级发送>>", nil)
+	advancedButton.SetCheckable(true)
 	sendButtonSpliter.AddWidget(mainWindow.sendButton)
 	sendButtonSpliter.AddWidget(clearSendButton)
 	sendButtonSpliter.AddWidget(advancedButton)
+	sendButtonSpliter.Handle(1).SetDisabled(true)
+	sendButtonSpliter.Handle(2).SetDisabled(true)
+	sendButtonSpliter.Handle(3).SetDisabled(true)
+
 	sendDataDisplaySplitter.AddWidget(mainWindow.sendDataDisplay)
 	sendDataDisplaySplitter.AddWidget(sendButtonSpliter)
+	sendDataDisplaySplitter.Handle(1).SetDisabled(true)
+	sendDataDisplaySplitter.SetStretchFactor(0, 1)
+	sendDataDisplaySplitter.SetStretchFactor(1, 0)
 
 	/// 数据显示
 	mainWindow.receiveDataDisplay = widgets.NewQTextEdit(nil)
