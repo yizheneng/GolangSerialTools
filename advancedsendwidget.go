@@ -11,8 +11,12 @@ import (
 type AdvancedSendWidget struct {
 	*widgets.QWidget
 
-	tableWidget  *widgets.QTableWidget
-	sendDataOnce func(data string, sendMode int)
+	tableWidget    *widgets.QTableWidget
+	sendDataOnce   func(data string, sendMode int)
+	dataTimer      *core.QTimer
+	sendDataConfig []AdvancedSendStruct /// 发送数据配置
+	sendCounters   []int                /// 发送数据计数器
+	sendTimes      []int                /// 发送数据的定时器间隔
 }
 
 type AdvancedSendStruct struct {
@@ -25,6 +29,7 @@ type AdvancedSendStruct struct {
 func NewAdvancedSendWidget() *AdvancedSendWidget {
 	widget := &AdvancedSendWidget{}
 	widget.QWidget = widgets.NewQWidget(nil, 0)
+	widget.dataTimer = core.NewQTimer(nil)
 
 	widget.tableWidget = widgets.NewQTableWidget(nil)
 	widget.tableWidget.SetColumnCount(5)
@@ -38,11 +43,13 @@ func NewAdvancedSendWidget() *AdvancedSendWidget {
 
 	addItemButton := widgets.NewQPushButton2("添加", nil)
 	removeItemButton := widgets.NewQPushButton2("删除", nil)
+	startSendButton := widgets.NewQPushButton2("开始发送", nil)
 
 	buttonLayout := widgets.NewQHBoxLayout()
 	buttonLayout.AddStretch(10)
 	buttonLayout.AddWidget(addItemButton, 0, 0)
 	buttonLayout.AddWidget(removeItemButton, 0, 0)
+	buttonLayout.AddWidget(startSendButton, 0, 0)
 
 	mainLayout := widgets.NewQVBoxLayout()
 	mainLayout.AddWidget(widget.tableWidget, 0, 0)
@@ -68,6 +75,55 @@ func NewAdvancedSendWidget() *AdvancedSendWidget {
 		fmt.Println("clicked row:", row)
 		widget.sendDataOnce(widget.tableWidget.Item(row, 0).Text(), widgets.NewQComboBoxFromPointer(widget.tableWidget.CellWidget(row, 1).Pointer()).CurrentIndex())
 	})
+	/// 开始发送按钮按下
+	startSendButton.ConnectClicked(func(clicked bool) {
+		if startSendButton.Text() == "开始发送" {
+			startSendButton.SetText("停止发送")
+			widget.tableWidget.SetDisabled(true)
+			addItemButton.SetDisabled(true)
+			removeItemButton.SetDisabled(true)
+
+			widget.sendCounters = []int{}
+			widget.sendTimes = []int{}
+			widget.sendDataConfig = widget.GetSettings()
+			var temp []AdvancedSendStruct
+			var tempNums []int
+			for _, sendStruct := range widget.sendDataConfig {
+				if sendStruct.Enable {
+					temp = append(temp, sendStruct)
+					tempNums = append(tempNums, sendStruct.Interval)
+					widget.sendCounters = append(widget.sendCounters, 0)
+				}
+			}
+
+			widget.sendDataConfig = temp
+
+			gcd := GetGCD(tempNums)
+			for _, num := range tempNums {
+				widget.sendTimes = append(widget.sendTimes, num/gcd)
+			}
+
+			widget.dataTimer.Start(gcd)
+		} else {
+			startSendButton.SetText("开始发送")
+			widget.tableWidget.SetDisabled(false)
+			addItemButton.SetDisabled(false)
+			removeItemButton.SetDisabled(false)
+			widget.dataTimer.Stop()
+		}
+	})
+	/// 定时器溢出
+	widget.dataTimer.ConnectTimeout(func() {
+		for i, counter := range widget.sendCounters {
+			if (counter + 1) >= widget.sendTimes[i] {
+				widget.sendCounters[i] = 0
+				widget.sendDataOnce(widget.sendDataConfig[i].Data, widget.sendDataConfig[i].InputMode)
+			} else {
+				widget.sendCounters[i] = counter + 1
+			}
+		}
+	})
+
 	return widget
 }
 
@@ -125,4 +181,44 @@ func (widget *AdvancedSendWidget) SetSettings(settings []AdvancedSendStruct) {
 
 func (widget *AdvancedSendWidget) ConnectSendDataOnce(f func(data string, sendMode int)) {
 	widget.sendDataOnce = f
+}
+
+/// 获取最大公约数
+func GetGCD(nums []int) int {
+	var i, j, temp int
+	for j = 0; j < len(nums)-1; j++ {
+		for i = 0; i < len(nums)-1-j; i++ {
+			if nums[i] > nums[i+1] {
+				temp = nums[i]
+				nums[i] = nums[i+1]
+				nums[i+1] = temp
+			}
+		}
+	}
+
+	if nums[0] == 1 {
+		return 1
+	}
+
+	result := nums[0] + 1
+
+	for {
+		result--
+		if result == 1 {
+			break
+		}
+
+		i := 0
+		for ; i < len(nums); i++ {
+			if nums[i]%result != 0 {
+				break
+			}
+		}
+
+		if i == len(nums) {
+			return result
+		}
+	}
+
+	return 1
 }
