@@ -54,6 +54,7 @@ type MainWindow struct {
 
 type SettingType struct {
 	SendHistorys []string
+	Advanceds    []AdvancedSendStruct
 }
 
 func NewMainwindow() (mainWindow *MainWindow) {
@@ -258,6 +259,8 @@ func NewMainwindow() (mainWindow *MainWindow) {
 			mainWindow.historySendListWidget.SetItem(i, 0, widgets.NewQTableWidgetItem2(settings.SendHistorys[i], 0))
 			mainWindow.historySendListWidget.Item(i, 0).SetToolTip(settings.SendHistorys[i])
 		}
+
+		mainWindow.advancedSendWidget.SetSettings(settings.Advanceds)
 	} else {
 		fmt.Errorf("Open file error Or json Unmarshal error")
 	}
@@ -569,7 +572,9 @@ func (mainWindow *MainWindow) closeDispose() {
 	for i := 0; i < mainWindow.historySendListWidget.RowCount(); i++ {
 		settings.SendHistorys = append(settings.SendHistorys, mainWindow.historySendListWidget.Item(i, 0).Text())
 	}
-	fmt.Println(settings.SendHistorys)
+	settings.Advanceds = mainWindow.advancedSendWidget.GetSettings()
+
+	fmt.Println(settings)
 	byteData, err := json.Marshal(&settings)
 	fmt.Println(string(byteData))
 	if err == nil {

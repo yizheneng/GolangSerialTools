@@ -2,6 +2,9 @@
 package main
 
 import (
+	"fmt"
+
+	"github.com/therecipe/qt/core"
 	"github.com/therecipe/qt/widgets"
 )
 
@@ -9,6 +12,13 @@ type AdvancedSendWidget struct {
 	*widgets.QWidget
 
 	tableWidget *widgets.QTableWidget
+}
+
+type AdvancedSendStruct struct {
+	Data      string
+	InputMode int
+	Interval  int
+	Enable    bool
 }
 
 func NewAdvancedSendWidget() *AdvancedSendWidget {
@@ -67,8 +77,35 @@ func (widget *AdvancedSendWidget) addNewRow(content string, inputMode int, inter
 	rowCount := widget.tableWidget.RowCount()
 	widget.tableWidget.InsertRow(rowCount)
 
+	widget.tableWidget.SetItem(rowCount, 0, widgets.NewQTableWidgetItem2(content, 0))
 	widget.tableWidget.SetCellWidget(rowCount, 1, inputModeCellWidget)
 	widget.tableWidget.SetCellWidget(rowCount, 2, intervalCellWidget)
 	widget.tableWidget.SetCellWidget(rowCount, 3, enableCellWidget)
-	widget.tableWidget.SetItem(rowCount, 4, widgets.NewQTableWidgetItem2("立即发送", 0))
+	item := widgets.NewQTableWidgetItem2("立即发送", 0)
+	item.SetFlags(core.Qt__ItemIsEnabled)
+	widget.tableWidget.SetItem(rowCount, 4, item)
+}
+
+func (widget *AdvancedSendWidget) GetSettings() []AdvancedSendStruct {
+	var result []AdvancedSendStruct
+
+	for i := 0; i < widget.tableWidget.RowCount(); i++ {
+		var temp AdvancedSendStruct
+
+		temp.Data = widget.tableWidget.Item(i, 0).Text()
+		temp.InputMode = widgets.NewQComboBoxFromPointer(widget.tableWidget.CellWidget(i, 1).Pointer()).CurrentIndex()
+		temp.Interval = widgets.NewQSpinBoxFromPointer(widget.tableWidget.CellWidget(i, 2).Pointer()).Value()
+		temp.Enable = widgets.NewQCheckBoxFromPointer(widget.tableWidget.CellWidget(i, 3).Pointer()).IsChecked()
+		fmt.Println("temp:", temp)
+		result = append(result, temp)
+	}
+
+	return result
+}
+
+func (widget *AdvancedSendWidget) SetSettings(settings []AdvancedSendStruct) {
+	for _, setting := range settings {
+		fmt.Println("setting:", setting)
+		widget.addNewRow(setting.Data, setting.InputMode, setting.Interval, setting.Enable)
+	}
 }
