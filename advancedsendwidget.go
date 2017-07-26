@@ -11,7 +11,8 @@ import (
 type AdvancedSendWidget struct {
 	*widgets.QWidget
 
-	tableWidget *widgets.QTableWidget
+	tableWidget  *widgets.QTableWidget
+	sendDataOnce func(data string, sendMode int)
 }
 
 type AdvancedSendStruct struct {
@@ -58,9 +59,19 @@ func NewAdvancedSendWidget() *AdvancedSendWidget {
 	removeItemButton.ConnectClicked(func(clicked bool) {
 		widget.tableWidget.RemoveRow(widget.tableWidget.CurrentRow())
 	})
+	/// 单击立即发送按钮
+	widget.tableWidget.ConnectCellClicked(func(row, column int) {
+		if column != 4 {
+			return
+		}
+
+		fmt.Println("clicked row:", row)
+		widget.sendDataOnce(widget.tableWidget.Item(row, 0).Text(), widgets.NewQComboBoxFromPointer(widget.tableWidget.CellWidget(row, 1).Pointer()).CurrentIndex())
+	})
 	return widget
 }
 
+/// 添加一行配置
 func (widget *AdvancedSendWidget) addNewRow(content string, inputMode int, interval int, enable bool) {
 	inputModeCellWidget := widgets.NewQComboBox(nil)
 	inputModeCellWidget.AddItems([]string{"十六进制", "ASCII"})
@@ -86,6 +97,7 @@ func (widget *AdvancedSendWidget) addNewRow(content string, inputMode int, inter
 	widget.tableWidget.SetItem(rowCount, 4, item)
 }
 
+/// 获取配置数据
 func (widget *AdvancedSendWidget) GetSettings() []AdvancedSendStruct {
 	var result []AdvancedSendStruct
 
@@ -103,9 +115,14 @@ func (widget *AdvancedSendWidget) GetSettings() []AdvancedSendStruct {
 	return result
 }
 
+/// 设置高级发送配置
 func (widget *AdvancedSendWidget) SetSettings(settings []AdvancedSendStruct) {
 	for _, setting := range settings {
 		fmt.Println("setting:", setting)
 		widget.addNewRow(setting.Data, setting.InputMode, setting.Interval, setting.Enable)
 	}
+}
+
+func (widget *AdvancedSendWidget) ConnectSendDataOnce(f func(data string, sendMode int)) {
+	widget.sendDataOnce = f
 }

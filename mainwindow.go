@@ -319,7 +319,12 @@ func NewMainwindow() (mainWindow *MainWindow) {
 	/// 历史发送列表双击
 	mainWindow.historySendListWidget.ConnectCellDoubleClicked(func(row, column int) {
 		text := mainWindow.historySendListWidget.Item(row, column).Text()
-		mainWindow.sendDateWithDataToSerial(text)
+
+		if mainWindow.asciiSendButton.IsChecked() {
+			mainWindow.sendDateWithDataToSerial(text, 1)
+		} else {
+			mainWindow.sendDateWithDataToSerial(text, 0)
+		}
 	})
 	/// 清除接收按钮
 	clearReceiveToolButton.ConnectClicked(func(checked bool) {
@@ -370,6 +375,8 @@ func NewMainwindow() (mainWindow *MainWindow) {
 		}
 		return false
 	})
+	/// 高级发送页面的立即发送按钮
+	mainWindow.advancedSendWidget.ConnectSendDataOnce(mainWindow.sendDateWithDataToSerial)
 	return
 }
 
@@ -464,7 +471,11 @@ func (mainWindow *MainWindow) sendData() {
 		mainWindow.sendButton.SetText("停止发送")
 		mainWindow.reSendTimer.Start(mainWindow.reSendSpinBox.Value())
 	} else {
-		mainWindow.sendDateWithDataToSerial(sendDataString)
+		if mainWindow.asciiSendButton.IsChecked() {
+			mainWindow.sendDateWithDataToSerial(sendDataString, 1)
+		} else {
+			mainWindow.sendDateWithDataToSerial(sendDataString, 0)
+		}
 	}
 
 	if sendDataString == "" {
@@ -480,8 +491,9 @@ func (mainWindow *MainWindow) sendData() {
 }
 
 /// 发送数据到串口
-func (mainWindow *MainWindow) sendDateWithDataToSerial(data string) {
-	if !mainWindow.asciiSendButton.IsChecked() {
+func (mainWindow *MainWindow) sendDateWithDataToSerial(data string, sendMode int /*0:十六进制 1:ASCII*/) {
+	fmt.Println("---sendMode:", sendMode)
+	if sendMode == 0 {
 		rx := core.NewQRegExp2("([a-fA-F0-9]{2}[ ]{0,1})*", core.Qt__CaseSensitive, core.QRegExp__RegExp)
 		rx.IndexIn(data, 0, core.QRegExp__CaretAtZero)
 		resultList := rx.CapturedTexts()
@@ -507,9 +519,11 @@ func (mainWindow *MainWindow) sendDateWithDataToSerial(data string) {
 				}
 			}
 		}
-		fmt.Println("---Result:", sendData)
+
 		data = string(sendData)
 	}
+
+	fmt.Println("---sendData:", data)
 
 	if mainWindow.serialPort.IsOpen() {
 		mainWindow.serialPort.Write2(data)
@@ -585,5 +599,9 @@ func (mainWindow *MainWindow) closeDispose() {
 /// 重复发送定时器超时
 func (mainWindow *MainWindow) reSendTimeOut() {
 	sendDataString := mainWindow.sendDataDisplay.ToPlainText()
-	mainWindow.sendDateWithDataToSerial(sendDataString)
+	if mainWindow.asciiSendButton.IsChecked() {
+		mainWindow.sendDateWithDataToSerial(sendDataString, 1)
+	} else {
+		mainWindow.sendDateWithDataToSerial(sendDataString, 0)
+	}
 }
