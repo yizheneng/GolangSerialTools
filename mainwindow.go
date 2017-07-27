@@ -59,11 +59,12 @@ type MainWindow struct {
 }
 
 type SettingType struct {
+	SkinPath     string
 	SendHistorys []string
 	Advanceds    []AdvancedSendStruct
 }
 
-func NewMainwindow() (mainWindow *MainWindow) {
+func NewMainwindow(app *widgets.QApplication) (mainWindow *MainWindow) {
 	mainWindow = &MainWindow{portOpenFlag: false}
 	mainWindow.QWidget = widgets.NewQWidget(nil, 0)
 	mainWindow.SetMinimumWidth(400)
@@ -240,6 +241,15 @@ func NewMainwindow() (mainWindow *MainWindow) {
 	clearHistoryToolButton.SetObjectName("clearHistoryToolButton")
 	clearHistoryToolButton.SetToolTip("清除历史记录")
 	clearHistoryToolButton.SetFixedSize2(40, 40)
+	saveToolButton := widgets.NewQToolButton(nil)
+	saveToolButton.SetObjectName("saveToolButton")
+	saveToolButton.SetToolTip("实时保存接收数据")
+	saveToolButton.SetCheckable(true)
+	saveToolButton.SetFixedSize2(40, 40)
+	skinToolButton := widgets.NewQToolButton(nil)
+	skinToolButton.SetObjectName("skinToolButton")
+	skinToolButton.SetToolTip("换肤")
+	skinToolButton.SetFixedSize2(40, 40)
 	infoToolButton := widgets.NewQToolButton(nil)
 	infoToolButton.SetObjectName("infoToolButton")
 	infoToolButton.SetFixedSize2(40, 40)
@@ -248,6 +258,9 @@ func NewMainwindow() (mainWindow *MainWindow) {
 	toolBar.AddWidget(clearReceiveToolButton)
 	toolBar.AddWidget(clearSendToolButton)
 	toolBar.AddWidget(clearHistoryToolButton)
+	toolBar.AddSeparator()
+	toolBar.AddWidget(saveToolButton)
+	toolBar.AddWidget(skinToolButton)
 	toolBar.AddSeparator()
 	toolBar.AddWidget(infoToolButton)
 
@@ -282,6 +295,17 @@ func NewMainwindow() (mainWindow *MainWindow) {
 	mainWindow.stopBitCombox.AddItems([]string{"1", "1.5", "2"})
 	mainWindow.asciiReceiveButton.SetChecked(true)
 	mainWindow.asciiSendButton.SetChecked(true)
+
+	/// 主题设置
+	qssFile := "./css/stylesheet.css"
+	file, err := os.OpenFile(qssFile, os.O_RDONLY, 0666)
+	defer file.Close()
+	if err == nil {
+		qssString, err := ioutil.ReadAll(file)
+		if err == nil {
+			app.SetStyleSheet(string(qssString))
+		}
+	}
 
 	/// 控件功能绑定
 	/// 发送按钮按下

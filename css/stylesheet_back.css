@@ -26,20 +26,6 @@ QToolButton#infoToolButton{
 	border-image: url(information.ico);
 }
 
-QToolButton#saveToolButton{
-	border-image: url(save.ico);
-	margin: 5px;
-}
-
-QToolButton#saveToolButton:checked{
-	background-color: red;
-}
-
-QToolButton#skinToolButton{
-	border-image: url(skin.png);
-}
-
-
 .QToolButton:hover {
 	border-style:solid;
 	border-width: 2px;
