@@ -50,6 +50,12 @@ type MainWindow struct {
 	autoNewLineTimer *core.QTimer
 	reSendTimer      *core.QTimer /// 重复发送定时器
 	sendStringBuf    string       /// 发送数据缓存区
+
+	/// 数据统计标签
+	sendByteCounter    int
+	receiveByteCounter int
+	sendByteLabel      *widgets.QLabel
+	receiveLabel       *widgets.QLabel
 }
 
 type SettingType struct {
@@ -71,6 +77,11 @@ func NewMainwindow() (mainWindow *MainWindow) {
 	mainWindow.autoNewLineTimer.ConnectTimeout(mainWindow.receiveAutoNewLineTimeOut)
 	mainWindow.reSendTimer = core.NewQTimer(nil)
 	mainWindow.reSendTimer.ConnectTimeout(mainWindow.reSendTimeOut)
+
+	mainWindow.sendByteLabel = widgets.NewQLabel2("发送计数: 0 Byte", nil, 0)
+	mainWindow.sendByteLabel.SetToolTip("双击清除计数")
+	mainWindow.receiveLabel = widgets.NewQLabel2("接收计数: 0 Byte", nil, 0)
+	mainWindow.receiveLabel.SetToolTip("双击清除计数")
 
 	/// 自动分割器
 	mainSplitter := widgets.NewQSplitter2(core.Qt__Vertical, nil)
@@ -194,9 +205,13 @@ func NewMainwindow() (mainWindow *MainWindow) {
 	SettingSpiltter.AddWidget(receiveSettingGroup)
 	SettingSpiltter.AddWidget(sendSettingGroup)
 	SettingSpiltter.AddWidget(settingSpacer)
+	SettingSpiltter.AddWidget(mainWindow.sendByteLabel)
+	SettingSpiltter.AddWidget(mainWindow.receiveLabel)
 	SettingSpiltter.Handle(0).SetDisabled(true)
 	SettingSpiltter.Handle(1).SetDisabled(true)
 	SettingSpiltter.Handle(2).SetDisabled(true)
+	SettingSpiltter.Handle(3).SetDisabled(true)
+	SettingSpiltter.Handle(4).SetDisabled(true)
 
 	mainWindow.SetLayout(mainLayout)
 
@@ -377,6 +392,16 @@ func NewMainwindow() (mainWindow *MainWindow) {
 	})
 	/// 高级发送页面的立即发送按钮
 	mainWindow.advancedSendWidget.ConnectSendDataOnce(mainWindow.sendDateWithDataToSerial)
+	/// 双击发送计数
+	mainWindow.sendByteLabel.ConnectMouseDoubleClickEvent(func(*gui.QMouseEvent) {
+		mainWindow.sendByteCounter = 0
+		mainWindow.sendByteLabel.SetText("发送计数: 0 Byte")
+	})
+	/// 双击发送计数
+	mainWindow.receiveLabel.ConnectMouseDoubleClickEvent(func(*gui.QMouseEvent) {
+		mainWindow.receiveByteCounter = 0
+		mainWindow.receiveLabel.SetText("接收计数: 0 Byte")
+	})
 	return
 }
 
@@ -527,6 +552,8 @@ func (mainWindow *MainWindow) sendDateWithDataToSerial(data string, sendMode int
 
 	if mainWindow.serialPort.IsOpen() {
 		mainWindow.serialPort.Write2(data)
+		mainWindow.sendByteCounter += len(data)
+		mainWindow.sendByteLabel.SetText("发送计数: " + strconv.Itoa(mainWindow.sendByteCounter) + " Byte")
 	}
 }
 
@@ -535,7 +562,10 @@ func (mainWindow *MainWindow) readData() {
 	if mainWindow.receiveDataBuf.Size() <= 0 {
 		mainWindow.autoNewLineTimer.Start(100)
 	}
-	mainWindow.receiveDataBuf.Append(mainWindow.serialPort.ReadAll())
+	data := mainWindow.serialPort.ReadAll()
+	mainWindow.receiveDataBuf.Append(data)
+	mainWindow.receiveByteCounter += data.Size()
+	mainWindow.receiveLabel.SetText("接收计数: " + strconv.Itoa(mainWindow.receiveByteCounter) + " Byte")
 }
 
 /// 自动换行定时器回调
