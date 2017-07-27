@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	qssFile := "stylesheet.css"
+	qssFile := "./css/stylesheet.css"
 	fmt.Println("Hello World!")
 	file, err := os.OpenFile(qssFile, os.O_RDONLY, 0666)
 	defer file.Close()
