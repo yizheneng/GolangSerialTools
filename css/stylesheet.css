@@ -381,6 +381,12 @@ QHeaderView::section {
     padding: 3px 0 3px 4px;
 }
 
+QTableWidget QTableCornerButton::section{
+	background: #222222;
+    border: 0;
+    color: #BBBBBB;
+}
+
 /* === QListView === */
 QListView::item:hover {
     background: #333333;
