@@ -22,6 +22,7 @@ type MainWindow struct {
 	advancedSendWidget *AdvancedSendWidget
 	portOpenFlag       bool
 	dispalyTextCursor  *gui.QTextCursor ///< 上次光标的记忆
+	skinFilePath       string
 
 	/// 串口参数控件
 	portNameCombox     *widgets.QComboBox
@@ -289,23 +290,32 @@ func NewMainwindow(app *widgets.QApplication) (mainWindow *MainWindow) {
 		fmt.Errorf("Open file error Or json Unmarshal error")
 	}
 
+	/// 主题设置
+	qssFile, err := os.OpenFile(settings.SkinPath, os.O_RDONLY, 0666)
+	defer qssFile.Close()
+	if err == nil {
+		qssString, err := ioutil.ReadAll(qssFile)
+		if err == nil {
+			app.SetStyleSheet(string(qssString))
+			mainWindow.skinFilePath = settings.SkinPath
+		}
+	} else {
+		defaultQssFile, err := os.OpenFile("./css/stylesheet.css", os.O_RDONLY, 0666)
+		defer defaultQssFile.Close()
+		if err == nil {
+			qssString, err := ioutil.ReadAll(defaultQssFile)
+			if err == nil {
+				app.SetStyleSheet(string(qssString))
+			}
+		}
+	}
+
 	mainWindow.buadCombox.AddItems([]string{"1500000", "115200", "57600", "38400", "19200", "9600"})
 	mainWindow.dataBitCombox.AddItems([]string{"8", "7"})
 	mainWindow.checkBitCombox.AddItems([]string{"None", "Even", "Odd", "Mark", "Space"})
 	mainWindow.stopBitCombox.AddItems([]string{"1", "1.5", "2"})
 	mainWindow.asciiReceiveButton.SetChecked(true)
 	mainWindow.asciiSendButton.SetChecked(true)
-
-	/// 主题设置
-	qssFile := "./css/stylesheet.css"
-	file, err := os.OpenFile(qssFile, os.O_RDONLY, 0666)
-	defer file.Close()
-	if err == nil {
-		qssString, err := ioutil.ReadAll(file)
-		if err == nil {
-			app.SetStyleSheet(string(qssString))
-		}
-	}
 
 	/// 控件功能绑定
 	/// 发送按钮按下
@@ -421,6 +431,36 @@ func NewMainwindow(app *widgets.QApplication) (mainWindow *MainWindow) {
 	mainWindow.receiveLabel.ConnectMouseDoubleClickEvent(func(*gui.QMouseEvent) {
 		mainWindow.receiveByteCounter = 0
 		mainWindow.receiveLabel.SetText("接收计数: 0 Byte")
+	})
+	/// 保存按钮按下
+	saveToolButton.ConnectClicked(func(checked bool) {
+		if checked { /// 开始保存
+			saveToolButton.SetToolTip("结束并保存文件")
+			file := widgets.QFileDialog_GetSaveFileName(mainWindow, "", ".", "*.txt", "", 0)
+			if file == "" {
+				saveToolButton.SetChecked(false)
+				saveToolButton.SetToolTip("实时保存接收数据")
+			}
+		} else { /// 结束保存
+			saveToolButton.SetToolTip("实时保存接收数据")
+		}
+	})
+	/// 换肤按钮按下
+	skinToolButton.ConnectClicked(func(checked bool) {
+		skinFilePath := widgets.QFileDialog_GetOpenFileName(mainWindow, "", ".", "*.css", "", 0)
+		if skinFilePath == "" {
+			return
+		}
+
+		skinFile, err := os.OpenFile(skinFilePath, os.O_RDONLY, 0666)
+		defer skinFile.Close()
+		if err == nil {
+			qssString, err := ioutil.ReadAll(skinFile)
+			if err == nil {
+				app.SetStyleSheet(string(qssString))
+				mainWindow.skinFilePath = skinFilePath
+			}
+		}
 	})
 	return
 }
@@ -637,6 +677,7 @@ func (mainWindow *MainWindow) closeDispose() {
 		settings.SendHistorys = append(settings.SendHistorys, mainWindow.historySendListWidget.Item(i, 0).Text())
 	}
 	settings.Advanceds = mainWindow.advancedSendWidget.GetSettings()
+	settings.SkinPath = mainWindow.skinFilePath
 
 	fmt.Println(settings)
 	byteData, err := json.Marshal(&settings)
