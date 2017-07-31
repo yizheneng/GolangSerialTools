@@ -23,6 +23,8 @@ type MainWindow struct {
 	portOpenFlag       bool
 	dispalyTextCursor  *gui.QTextCursor ///< 上次光标的记忆
 	skinFilePath       string
+	saveFileBuf        string ///< 实时存储buf
+	saveFilePath       string
 
 	/// 串口参数控件
 	portNameCombox     *widgets.QComboBox
@@ -40,6 +42,7 @@ type MainWindow struct {
 	displayTimeCheckBox       *widgets.QCheckBox
 	reSendCheckButton         *widgets.QCheckBox
 	reSendSpinBox             *widgets.QSpinBox
+	saveToolButton            *widgets.QToolButton
 
 	/// 数据显示
 	receiveDataDisplay    *widgets.QTextEdit
@@ -242,11 +245,11 @@ func NewMainwindow(app *widgets.QApplication) (mainWindow *MainWindow) {
 	clearHistoryToolButton.SetObjectName("clearHistoryToolButton")
 	clearHistoryToolButton.SetToolTip("清除历史记录")
 	clearHistoryToolButton.SetFixedSize2(40, 40)
-	saveToolButton := widgets.NewQToolButton(nil)
-	saveToolButton.SetObjectName("saveToolButton")
-	saveToolButton.SetToolTip("实时保存接收数据")
-	saveToolButton.SetCheckable(true)
-	saveToolButton.SetFixedSize2(40, 40)
+	mainWindow.saveToolButton = widgets.NewQToolButton(nil)
+	mainWindow.saveToolButton.SetObjectName("saveToolButton")
+	mainWindow.saveToolButton.SetToolTip("实时保存接收数据")
+	mainWindow.saveToolButton.SetCheckable(true)
+	mainWindow.saveToolButton.SetFixedSize2(40, 40)
 	skinToolButton := widgets.NewQToolButton(nil)
 	skinToolButton.SetObjectName("skinToolButton")
 	skinToolButton.SetToolTip("换肤")
@@ -260,7 +263,7 @@ func NewMainwindow(app *widgets.QApplication) (mainWindow *MainWindow) {
 	toolBar.AddWidget(clearSendToolButton)
 	toolBar.AddWidget(clearHistoryToolButton)
 	toolBar.AddSeparator()
-	toolBar.AddWidget(saveToolButton)
+	toolBar.AddWidget(mainWindow.saveToolButton)
 	toolBar.AddWidget(skinToolButton)
 	toolBar.AddSeparator()
 	toolBar.AddWidget(infoToolButton)
@@ -433,16 +436,24 @@ func NewMainwindow(app *widgets.QApplication) (mainWindow *MainWindow) {
 		mainWindow.receiveLabel.SetText("接收计数: 0 Byte")
 	})
 	/// 保存按钮按下
-	saveToolButton.ConnectClicked(func(checked bool) {
+	mainWindow.saveToolButton.ConnectClicked(func(checked bool) {
 		if checked { /// 开始保存
-			saveToolButton.SetToolTip("结束并保存文件")
+			mainWindow.saveToolButton.SetToolTip("结束并保存文件")
 			file := widgets.QFileDialog_GetSaveFileName(mainWindow, "", ".", "*.txt", "", 0)
 			if file == "" {
-				saveToolButton.SetChecked(false)
-				saveToolButton.SetToolTip("实时保存接收数据")
+				mainWindow.saveToolButton.SetChecked(false)
+				mainWindow.saveToolButton.SetToolTip("实时保存接收数据")
+			} else {
+				mainWindow.saveFileBuf = ""
+				mainWindow.saveFilePath = file
 			}
 		} else { /// 结束保存
-			saveToolButton.SetToolTip("实时保存接收数据")
+			mainWindow.saveToolButton.SetToolTip("实时保存接收数据")
+			if ioutil.WriteFile(mainWindow.saveFilePath, []byte(mainWindow.saveFileBuf), os.ModeCharDevice) != nil {
+				widgets.QMessageBox_Critical(mainWindow, "错误", "保存文件错误，文件名错误或没有保存权限！！！", widgets.QMessageBox__Close, widgets.QMessageBox__NoButton)
+			}
+			mainWindow.saveFileBuf = ""
+			mainWindow.saveFilePath = ""
 		}
 	})
 	/// 换肤按钮按下
@@ -660,8 +671,16 @@ func (mainWindow *MainWindow) receiveAutoNewLineTimeOut() {
 	if mainWindow.autoNewLineReciveCheckBox.IsChecked() {
 		mainWindow.receiveDataDisplay.InsertHtml(stringData)
 		mainWindow.receiveDataDisplay.InsertPlainText("\n")
+
+		if mainWindow.saveToolButton.IsChecked() {
+			mainWindow.saveFileBuf += stringData + "\n"
+		}
 	} else {
 		mainWindow.receiveDataDisplay.InsertPlainText(stringData)
+
+		if mainWindow.saveToolButton.IsChecked() {
+			mainWindow.saveFileBuf += stringData
+		}
 	}
 	mainWindow.dispalyTextCursor = mainWindow.receiveDataDisplay.TextCursor()
 	mainWindow.receiveDataDisplay.VerticalScrollBar().SetValue(mainWindow.receiveDataDisplay.VerticalScrollBar().Maximum())
