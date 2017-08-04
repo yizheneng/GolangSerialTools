@@ -303,13 +303,18 @@ func NewMainwindow(app *widgets.QApplication) (mainWindow *MainWindow) {
 			mainWindow.skinFilePath = settings.SkinPath
 		}
 	} else {
-		defaultQssFile, err := os.OpenFile("./css/stylesheet.css", os.O_RDONLY, 0666)
-		defer defaultQssFile.Close()
-		if err == nil {
-			qssString, err := ioutil.ReadAll(defaultQssFile)
-			if err == nil {
-				app.SetStyleSheet(string(qssString))
-			}
+		//		defaultQssFile, err := os.OpenFile(":/icons/css/stylesheet.css", os.O_RDONLY, 0666)
+		//		defer defaultQssFile.Close()
+		//		if err == nil {
+		//			qssString, err := ioutil.ReadAll(defaultQssFile)
+		//			if err == nil {
+		//				app.SetStyleSheet(string(qssString))
+		//			}
+		//		}
+		defaultQssFile := core.NewQFile2(":/icons/css/stylesheet.css")
+		if defaultQssFile.Open(core.QIODevice__ReadOnly) {
+			app.SetStyleSheet(defaultQssFile.ReadAll().Data())
+			defaultQssFile.Close()
 		}
 	}
 

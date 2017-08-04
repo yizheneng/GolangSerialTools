@@ -8,5 +8,6 @@
         <file>icons/save.ico</file>
         <file>icons/skin.png</file>
         <file>icons/stop_128px.ico</file>
+        <file>css/stylesheet.css</file>
     </qresource>
 </RCC>
