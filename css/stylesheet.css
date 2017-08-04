@@ -3,31 +3,31 @@ QToolBar{
 }
 
 QToolButton#openPortToolButton:!checked{
-	border-image: url(play_128px.ico);
+	border-image: url(:/icons/icons/play_128px.ico);
 }
 
 QToolButton#openPortToolButton:checked{
-	border-image: url(stop_128px.ico);
+	border-image: url(:/icons/icons/stop_128px.ico);
 }
 
 QToolButton#clearReceiveToolButton{
-	border-image: url(edit_clear_receive.png);
+	border-image: url(:/icons/icons/edit_clear_receive.png);
 }
 
 QToolButton#clearSendToolButton{
-	border-image: url(edit_clear_send.png);
+	border-image: url(:/icons/icons/edit_clear_send.png);
 }
 
 QToolButton#clearHistoryToolButton{
-	border-image: url(edit_clear_history.png);
+	border-image: url(:/icons/icons/edit_clear_history.png);
 }
 
 QToolButton#infoToolButton{
-	border-image: url(information.ico);
+	border-image: url(:/icons/icons/information.ico);
 }
 
 QToolButton#saveToolButton{
-	border-image: url(save.ico);
+	border-image: url(:/icons/icons/save.ico);
 	margin: 5px;
 }
 
@@ -36,7 +36,7 @@ QToolButton#saveToolButton:checked{
 }
 
 QToolButton#skinToolButton{
-	border-image: url(skin.png);
+	border-image: url(:/icons/icons/skin.png);
 }
 
 

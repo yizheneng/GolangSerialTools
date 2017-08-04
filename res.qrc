@@ -1,0 +1,12 @@
+<RCC>
+    <qresource prefix="/icons">
+        <file>icons/edit_clear_history.png</file>
+        <file>icons/edit_clear_receive.png</file>
+        <file>icons/edit_clear_send.png</file>
+        <file>icons/information.ico</file>
+        <file>icons/play_128px.ico</file>
+        <file>icons/save.ico</file>
+        <file>icons/skin.png</file>
+        <file>icons/stop_128px.ico</file>
+    </qresource>
+</RCC>
