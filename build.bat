@@ -1,1 +1,2 @@
-qtdeploy.exe build
+set GO111MODULE=off
+qtdeploy.exe test

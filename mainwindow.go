@@ -14,6 +14,7 @@ import (
 	"github.com/therecipe/qt/gui"
 	"github.com/therecipe/qt/serialport"
 	"github.com/therecipe/qt/widgets"
+	_ "github.com/yizheneng/goutils"
 )
 
 type MainWindow struct {
@@ -400,7 +401,7 @@ func NewMainwindow(app *widgets.QApplication) (mainWindow *MainWindow) {
 	})
 	/// 重复发送间隔发生变化
 	mainWindow.reSendSpinBox.ConnectValueChanged(func(newVal int) {
-		mainWindow.reSendTimer.Start(newVal)
+		mainWindow.reSendTimer.SetInterval(newVal)
 	})
 	/// 关于按钮按下
 	infoToolButton.ConnectClicked(func(checked bool) {
@@ -672,7 +673,9 @@ func (mainWindow *MainWindow) receiveAutoNewLineTimeOut() {
 		stringData = currentTime.ToString("hh:mm:ss.zzz: ") + stringData
 	}
 
-	mainWindow.receiveDataDisplay.SetTextCursor(mainWindow.dispalyTextCursor)
+	bottomFlag := (mainWindow.receiveDataDisplay.VerticalScrollBar().Value() >= (mainWindow.receiveDataDisplay.VerticalScrollBar().Maximum() - 1))
+
+	// mainWindow.receiveDataDisplay.SetTextCursor(mainWindow.dispalyTextCursor)
 	if mainWindow.autoNewLineReciveCheckBox.IsChecked() {
 		mainWindow.receiveDataDisplay.InsertHtml(stringData)
 		mainWindow.receiveDataDisplay.InsertPlainText("\n")
@@ -687,10 +690,13 @@ func (mainWindow *MainWindow) receiveAutoNewLineTimeOut() {
 			mainWindow.saveFileBuf += stringData
 		}
 	}
+	
 	mainWindow.dispalyTextCursor = mainWindow.receiveDataDisplay.TextCursor()
-	mainWindow.receiveDataDisplay.VerticalScrollBar().SetValue(mainWindow.receiveDataDisplay.VerticalScrollBar().Maximum())
-
 	mainWindow.receiveDataBuf.Clear()
+
+	if bottomFlag {
+		mainWindow.receiveDataDisplay.VerticalScrollBar().SetValue(mainWindow.receiveDataDisplay.VerticalScrollBar().Maximum())
+	}
 }
 
 /// 关闭时的处理
